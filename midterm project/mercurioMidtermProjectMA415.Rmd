@@ -1,0 +1,72 @@
+---
+title: "MA415 Midterm Project"
+author: "Katherine Mercurio"
+date: "March 22, 2017"
+output: html_document
+---
+Project Overview: 
+
+I decided that the most efficient way to clean this dataset would be to merge all of the DBF files, but only the columns of interest. I determined which columns are of interest by observing which ones have distinguishing levels, attributes, or are important for determining danger. I decided that because we are only concerned about which places to work are most dangerous, workplaces with "Gravity" scores of 00 in "viol.dbf" were omitted, since they are the least dangerous. I also deleted any incidents that affected zero people, because I believe danger is most relevant when it affected people. If additional information about companies is needed, one can refer to the uncleaned data sets. My tidy dataset prepares the data for analysis because it deletes duplicates and simplifies information into one table to best compare the most dangerous places to work in MA. 
+
+PART 1:
+```{r}
+library(foreign)
+library(dplyr)
+osha <- read.dbf("osha.DBF")
+viol <- read.dbf("viol.DBF")
+subViol <- viol[ ,c("ACTIVITYNO","NUMEXPOSED", "GRAVITY", "ISSUANCE", "CITATION", "VIOLTYPE")]
+subViolU <- subViol[ ,c("ACTIVITYNO", "ISSUANCE")]
+subViolU <- distinct(subViolU)
+subViol <- unique(inner_join(subViolU, subViol))
+subOsha <- osha[ ,c("ESTABNAME", "ACTIVITYNO", "PREVACTNO", "PREVCTTYP", "INSPTYPE")]
+subOshaU <- distinct(subOsha)
+ov <- unique(inner_join(subViol, subOshaU, by = "ACTIVITYNO"))
+ov <- filter(ov, NUMEXPOSED > 0)
+ov <- distinct(ov)
+```
+Here, I installed the foreign package so I could read the DBF file osha to examine the initial data table. I began by examining a subset of "osha.DBF" that included the activity number, establishment name, and inspection type. I decided that first I should remove duplicate ACTIVITYNO, as seen with the code in line 18 using the distinct command. I joined my distinct Osha subset with the viol table, and filtered it to only include gravity scores above 0 and number of people exposed to over 0 as well, because both of those are key characteristics for determining a workplace's danger. I noticed a lot of inconsistencies with the data, so those should be further explored in analysis. 
+
+PART 2:
+```{r}
+accid <- read.dbf("accid.DBF")
+ov <- unique(inner_join(ov, accid, by = "ACTIVITYNO"))
+ov <- ov[ ,c("ACTIVITYNO", "ESTABNAME", "GRAVITY", "NAME.x", "SEX.x", "DEGREE.x", "NATURE.x", "BODYPART.x", "SOURCE.x") ]
+acc <- read.dbf("./lookups/acc.dbf")
+acc1 <- acc[1:31,]
+ov <- unique(left_join(ov, acc1, by = c("BODYPART.x" = "CODE")))
+ov <- BBmisc:: dropNamed(ov, "BODYPART.x") #dropped columns that were no longer needed
+ov <- BBmisc:: dropNamed(ov, "CATEGORY.y")
+ov <- BBmisc:: dropNamed(ov, "VALUE.y")
+acc2 <- acc[84:105, ]
+ov <- left_join(ov, acc2, by = c("NATURE.x" = "CODE"))
+acc3 <- acc[106:153, ]
+ov <- left_join(ov, acc3, by = c("SOURCE.x" = "CODE"))
+library(plyr)
+ov <- rename(ov, c("VALUE.x"="BodyPart", "VALUE.y"="EnvFact", "VALUE" = "InjurySource"))
+ov <- BBmisc:: dropNamed(ov, "NATURE.x")
+ov <- BBmisc:: dropNamed(ov, "SOURCE.x")
+ov <- BBmisc:: dropNamed(ov, "CATEGORY.x")
+ov <- BBmisc:: dropNamed(ov, "CATEGORY.y")
+ov <- BBmisc:: dropNamed(ov, "CATEGORY")
+```
+Here, I began by reading in the accid file so that I could attach more information about each accident to the data frame. I joined by activity number, and then replaced each code with what the code represents (ex: 01 = body part that corresponds to 01). Then, I renamed the columns. 
+
+PART 3:
+```{r}
+library(tidyr)
+viol <- viol[, c("ACTIVITYNO", "ISSUEDATE")]
+ov <- unique(inner_join(ov, viol))
+ov <- separate(ov, ISSUEDATE,c("Year", "Month", "Day"), "-")
+```
+I added the Issue date to the ov datatable. I split the date up into three columns so one could analyze trends in months and years. 
+
+PART 4:
+```{r}
+library(ggplot2)
+graph1 <- ggplot(ov, aes(Year, BodyPart))
+graph1
+graph2 <- ggplot(ov, aes(BodyPart)) + geom_bar(aes(fill = DEGREE.x))
+graph2
+```
+
+ Graph 2 shows the data in my ov datatable, illustrating which body part is harmed most frequently. A degree of 0 means the degree was missing, NA, or entered as 0. 1 means fatality. 
