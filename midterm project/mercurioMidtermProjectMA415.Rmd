@@ -4,11 +4,11 @@ author: "Katherine Mercurio"
 date: "March 22, 2017"
 output: html_document
 ---
-Project Overview: 
+Project Overview/ PART 1: 
 
-I decided that the most efficient way to clean this dataset would be to merge all of the DBF files, but only the columns of interest. I determined which columns are of interest by observing which ones have distinguishing levels, attributes, or are important for determining danger. I decided that because we are only concerned about which places to work are most dangerous, workplaces with "Gravity" scores of 00 in "viol.dbf" were omitted, since they are the least dangerous. I also deleted any incidents that affected zero people, because I believe danger is most relevant when it affected people. If additional information about companies is needed, one can refer to the uncleaned data sets. My tidy dataset prepares the data for analysis because it deletes duplicates and simplifies information into one table to best compare the most dangerous places to work in MA. 
+At first, I tried a bunch of different techniques to merge every data table togther. But, I realized there were too many variables that didn't relate, and it would have made the dataset hard to analyze. Since the data is meant to be prepard to study dangerous places to work, I focused on attributes that give the best picture of dangerous work places. I determined which columns are of interest by observing which ones have distinguishing levels, attributes, or are important for determining danger. I also deleted any incidents that affected zero people, because I believe danger is most relevant when it affected people. If additional information about companies is needed, one can use the activityno to find corresponding information. My tidy dataset prepares the data for analysis because it deletes duplicates and simplifies information into one table to best compare the most dangerous places to work in MA. 
 
-PART 1:
+PART 2:
 ```{r}
 library(foreign)
 library(dplyr)
@@ -24,15 +24,16 @@ ov <- unique(inner_join(subViol, subOshaU, by = "ACTIVITYNO"))
 ov <- filter(ov, NUMEXPOSED > 0)
 ov <- distinct(ov)
 ```
-Here, I installed the foreign package so I could read the DBF file osha to examine the initial data table. I began by examining a subset of "osha.DBF" that included the activity number, establishment name, and inspection type. I decided that first I should remove duplicate ACTIVITYNO, as seen with the code in line 18 using the distinct command. I joined my distinct Osha subset with the viol table, and filtered it to only include gravity scores above 0 and number of people exposed to over 0 as well, because both of those are key characteristics for determining a workplace's danger. I noticed a lot of inconsistencies with the data, so those should be further explored in analysis. 
+I began by dowloading foreign and dplyr because those are both important libraries to have for my code. Foreign makes reading the dbf files possible. Dplyr makes joins, distinct, unique, and filter possible. I opened up OSHA and viol, and then began subsetting them. I carefully chose attributes I thought were most important based on the lookups text files, the amount of missing (NA) data, and the amount of levels for each attribute. For example, it's important that each company is in MA, because that is the area of interest. But, since all of the accidents in this data set are in MA, each indident doesn't need to list the state, it can be assumed. I noticed a lot of ACTIVITYNO values were repeated, so I believe whoever entered information into the dataset accidentally entered single events multiple times, or created new accidents instead of updating old information. I tried to reduce duplicates by using distinct and unique. I interpreted danger as being relevant to people, since these are workpalces people work at, so I fitlered out any workplace accidents that did not impact people. 
 
-PART 2:
+PART 3:
 ```{r}
 accid <- read.dbf("accid.DBF")
 ov <- unique(inner_join(ov, accid, by = "ACTIVITYNO"))
 ov <- ov[ ,c("ACTIVITYNO", "ESTABNAME", "GRAVITY", "NAME.x", "SEX.x", "DEGREE.x", "NATURE.x", "BODYPART.x", "SOURCE.x") ]
 acc <- read.dbf("./lookups/acc.dbf")
 acc1 <- acc[1:31,]
+library(BBmisc)
 ov <- unique(left_join(ov, acc1, by = c("BODYPART.x" = "CODE")))
 ov <- BBmisc:: dropNamed(ov, "BODYPART.x") #dropped columns that were no longer needed
 ov <- BBmisc:: dropNamed(ov, "CATEGORY.y")
@@ -42,6 +43,7 @@ ov <- left_join(ov, acc2, by = c("NATURE.x" = "CODE"))
 acc3 <- acc[106:153, ]
 ov <- left_join(ov, acc3, by = c("SOURCE.x" = "CODE"))
 library(plyr)
+
 ov <- rename(ov, c("VALUE.x"="BodyPart", "VALUE.y"="EnvFact", "VALUE" = "InjurySource"))
 ov <- BBmisc:: dropNamed(ov, "NATURE.x")
 ov <- BBmisc:: dropNamed(ov, "SOURCE.x")
@@ -49,9 +51,9 @@ ov <- BBmisc:: dropNamed(ov, "CATEGORY.x")
 ov <- BBmisc:: dropNamed(ov, "CATEGORY.y")
 ov <- BBmisc:: dropNamed(ov, "CATEGORY")
 ```
-Here, I began by reading in the accid file so that I could attach more information about each accident to the data frame. I joined by activity number, and then replaced each code with what the code represents (ex: 01 = body part that corresponds to 01). Then, I renamed the columns. 
+Here, I began by reading in the accid file so that I could attach more information about each accident to the data frame. I again used read.dbf() to read in this file, used inner_join to attach the columns of accid to ov. I created a subset of ov  to refine the columns I was using. I joined by activity number, and then replaced each code with what the code represents (ex: 01 = body part that corresponds to 01). This makes the table much easier to interpret because the name of the body part is much more important than its code. I continued this process with nature and source codes. Then, I renamed the columns using plyr and deleted extra columns using the dropNamed function from the BBmisc library. 
 
-PART 3:
+PART 4:
 ```{r}
 library(tidyr)
 viol <- viol[, c("ACTIVITYNO", "ISSUEDATE")]
@@ -60,7 +62,7 @@ ov <- separate(ov, ISSUEDATE,c("Year", "Month", "Day"), "-")
 ```
 I added the Issue date to the ov datatable. I split the date up into three columns so one could analyze trends in months and years. 
 
-PART 4:
+PART 5:
 ```{r}
 library(ggplot2)
 graph1 <- ggplot(ov, aes(Year, BodyPart))
